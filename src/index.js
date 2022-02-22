@@ -1,0 +1,23 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.undoBox = void 0;
+const UndoBox_1 = __importDefault(require("./UndoBox"));
+const undoBox = function ({ key, autoBox = true, autoHandleData = true, callback }) {
+    return new UndoBox_1.default({
+        key,
+        autoBox,
+        autoHandleData,
+        callback,
+        vm: this
+    });
+};
+exports.undoBox = undoBox;
+const install = function (Vue, opts) {
+    Vue.prototype.$undoBox = exports.undoBox;
+};
+exports.default = {
+    install
+};
