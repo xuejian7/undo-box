@@ -1,4 +1,5 @@
 import Vue from "vue";
+import Type from "./UndoBoxType";
 
 class UndoBox {
     // 撤销栈
@@ -17,6 +18,8 @@ class UndoBox {
     private readonly key: string
     // vm实例
     private readonly _vm: Vue
+    // undo-box 类型
+    private readonly type: Type
     // 操作相关
     private readonly callback: (data: {}) => void
     private readonly autoHandleData: boolean
@@ -24,6 +27,7 @@ class UndoBox {
     constructor(
         {
             key,
+            type = Type.AUTO,
             autoBox = true,
             autoHandleData = true,
             callback = (data: {}) => {
@@ -31,6 +35,7 @@ class UndoBox {
             vm
         }: {
             key: string,
+            type?: Type,
             autoBox?: boolean,
             autoHandleData?: boolean,
             callback?: (data: {}) => void,
@@ -39,6 +44,7 @@ class UndoBox {
     ) {
         this.key = key;
         this._vm = vm
+        this.type = type
         this.autoHandleData = autoHandleData
         this.callback = callback
         if (autoBox) {
@@ -67,6 +73,11 @@ class UndoBox {
 
         this._reset()
         this.undo_stack.push(JSON.stringify(this._vm.$data[this.key]))
+        this.running = true
+
+        if (this.type === Type.MANUAL) {
+            return;
+        }
         this.unwatch = this._vm.$watch(this.key,
             (val) => {
                 if (this.freeze > 0) {
@@ -81,7 +92,13 @@ class UndoBox {
             {
                 deep: true
             })
-        this.running = true
+    }
+
+    public record(){
+        if (this.type === Type.AUTO) {
+            return
+        }
+        this.undo_stack.push(JSON.stringify(this._vm.$data[this.key]))
     }
 
     /**
@@ -99,8 +116,9 @@ class UndoBox {
         if (typeof this.undo_stack === "undefined" || this.undo_stack === null || this.undo_stack.length <= 1) {
             return
         }
-
-        this.freeze++
+        if (this.type === Type.AUTO) {
+            this.freeze++
+        }
         let pop = this.undo_stack.pop()
         if (pop == undefined) {
             return;
@@ -117,8 +135,9 @@ class UndoBox {
         if (typeof this.redo_stack === "undefined" || this.redo_stack === null || this.redo_stack.length === 0) {
             return
         }
-
-        this.freeze++
+        if (this.type === Type.AUTO) {
+            this.freeze++
+        }
         let pop = this.redo_stack.pop()
         if (pop === undefined) {
             return;
