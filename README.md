@@ -43,8 +43,8 @@ Vue.prototype.$dodoBox = undoBox
                 }
             }
         }
-    ```
-        
+        ```
+   
    2. 手动处理数据
 
       ```js
