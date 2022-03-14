@@ -1,134 +1,121 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const UndoBoxType_1 = __importDefault(require("./UndoBoxType"));
 class UndoBox {
-    constructor({ key, type = UndoBoxType_1.default.AUTO, autoBox = true, autoHandleData = true, callback = (data) => {
-    }, vm }) {
-        // 撤销栈
-        this.undo_stack = [];
-        // 重做栈
-        this.redo_stack = [];
-        // 冻结计数
-        this.freeze = 0;
-        // 运行状态
-        this.running = false;
-        // 停止监听方法
-        this.unwatch = () => {
-            throw new Error('unwatch is undefined');
-        };
-        this.key = key;
-        this._vm = vm;
-        this.type = type;
-        this.autoHandleData = autoHandleData;
-        this.callback = callback;
-        if (autoBox) {
-            this.box();
-        }
+    constructor(vm) {
+        this.vm = vm;
+        // 撤销类型栈
+        this.undo_key_stack = [];
+        // 重做类型栈
+        this.redo_key_stack = [];
+        // watch_id key map
+        this.id_key_dict = {};
+        // box信息
+        this.box_info = {};
     }
     /**
-     * 重置数据
-     * @private
+     * 添加监听数据
      */
-    _reset() {
-        this.undo_stack = [];
-        this.redo_stack = [];
-        this.freeze = 0;
-        this.running = false;
-    }
-    /**
-     * 开始监听
-     */
-    box() {
-        if (this.running) {
-            return;
-        }
-        this._reset();
-        this.undo_stack.push(JSON.stringify(this._vm.$data[this.key]));
-        this.running = true;
-        if (this.type === UndoBoxType_1.default.MANUAL) {
-            return;
-        }
-        this.unwatch = this._vm.$watch(this.key, (val) => {
-            if (this.freeze > 0) {
-                this.freeze--;
-                return;
+    add({ key, callback = ({}) => {
+    }, auto_handle_data = true }) {
+        this.box_info[key] = {
+            undo_stack: [JSON.stringify(this.vm.$data[key])],
+            redo_stack: [],
+            callback,
+            auto_handle_data,
+            unwatch: () => {
             }
-            this.undo_stack.push(JSON.stringify(val));
-            this.redo_stack = [];
-        }, {
-            deep: true
-        });
-    }
-    record() {
-        if (this.type === UndoBoxType_1.default.AUTO) {
-            return;
-        }
-        this.undo_stack.push(JSON.stringify(this._vm.$data[this.key]));
-    }
-    /**
-     * 停止监听
-     */
-    unbox() {
-        this._reset();
-        this.unwatch();
+        };
+        this.watch(key);
     }
     /**
      * 撤销
      */
     undo() {
-        if (typeof this.undo_stack === "undefined" || this.undo_stack === null || this.undo_stack.length <= 1) {
+        if (typeof this.undo_key_stack === "undefined"
+            ||
+                this.undo_key_stack === null
+            ||
+                this.undo_key_stack.length === 0) {
             return;
         }
-        if (this.type === UndoBoxType_1.default.AUTO) {
-            this.freeze++;
-        }
-        let pop = this.undo_stack.pop();
-        if (pop == undefined) {
+        let snapshot_key = this.undo_key_stack.pop();
+        this.redo_key_stack.push(snapshot_key);
+        let snapshot_record = this.box_info[snapshot_key].undo_stack.pop();
+        if (snapshot_record === undefined)
             return;
-        }
-        this.redo_stack.push(pop);
-        let data = JSON.parse(this.undo_stack[this.undo_stack.length - 1]);
-        this.defaultHandle(data);
+        this.box_info[snapshot_key].redo_stack.push(snapshot_record);
+        let data = JSON.parse(this.box_info[snapshot_key].undo_stack[this.box_info[snapshot_key].undo_stack.length - 1]);
+        this.unwatch(snapshot_key);
+        this.defaultHandle(snapshot_key, data);
+        this.watch(snapshot_key);
     }
     /**
      * 重做
      */
     redo() {
-        if (typeof this.redo_stack === "undefined" || this.redo_stack === null || this.redo_stack.length === 0) {
+        if (typeof this.redo_key_stack === "undefined"
+            ||
+                this.redo_key_stack === null
+            ||
+                this.redo_key_stack.length === 0) {
             return;
         }
-        if (this.type === UndoBoxType_1.default.AUTO) {
-            this.freeze++;
-        }
-        let pop = this.redo_stack.pop();
-        if (pop === undefined) {
+        let snapshot_key = this.redo_key_stack.pop();
+        this.undo_key_stack.push(snapshot_key);
+        let pop = this.box_info[snapshot_key].redo_stack.pop();
+        if (pop === undefined)
             return;
-        }
-        this.undo_stack.push(pop);
+        this.box_info[snapshot_key].undo_stack.push(pop);
         let data = JSON.parse(pop);
-        this.defaultHandle(data);
+        this.unwatch(snapshot_key);
+        this.defaultHandle(snapshot_key, data);
+        this.watch(snapshot_key);
     }
     /**
-     * 默认行为
-     * @param data
-     * @private
+     * 开始监听
+     * @param key
      */
-    defaultHandle(data) {
-        if (this.autoHandleData) {
-            this.defaultHandleDataChange(data);
+    watch(key) {
+        this.box_info[key].unwatch =
+            this.vm.$watch(key, (val) => {
+                let key = this.id_key_dict[val.__ob__.dep.id];
+                this.take_snapshot(key, val);
+            }, {
+                deep: true
+            });
+        this.id_key_dict[this.vm.$data[key].__ob__.dep.id] = key;
+    }
+    /**
+     * 手动记录快照
+     * @param key
+     * @param data
+     */
+    take_snapshot(key, data) {
+        this.undo_key_stack.push(key);
+        this.box_info[key].undo_stack.push(JSON.stringify(data));
+        this.redo_key_stack = [];
+        for (key in this.box_info) {
+            this.box_info[key].redo_stack = [];
         }
-        this.callback(data);
+    }
+    /**
+     * 停止监听
+     * @param key
+     */
+    unwatch(key) {
+        this.box_info[key].unwatch();
     }
     /**
      * 默认处理数据方法
+     * @param key
      * @param data
      * @private
      */
-    defaultHandleDataChange(data) {
-        this._vm.$set(this._vm, this.key, data);
+    defaultHandle(key, data) {
+        if (this.box_info[key].auto_handle_data) {
+            this.vm.$set(this.vm, key, data);
+        }
+        this.box_info[key].callback(data);
     }
 }
 exports.default = UndoBox;

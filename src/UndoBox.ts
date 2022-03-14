@@ -1,174 +1,164 @@
 import Vue from "vue";
-import Type from "./UndoBoxType";
 
-class UndoBox {
+interface UndoBoxItem {
     // 撤销栈
-    private undo_stack: Array<string> = []
+    undo_stack: Array<string>
     // 重做栈
-    private redo_stack: Array<string> = []
-    // 冻结计数
-    private freeze: number = 0
-    // 运行状态
-    private running: boolean = false
-    // 停止监听方法
-    private unwatch: (() => void) = () => {
-        throw new Error('unwatch is undefined')
-    }
-    // 所监听的data key
-    private readonly key: string
-    // vm实例
-    private readonly _vm: Vue
-    // undo-box 类型
-    private readonly type: Type
-    // 操作相关
-    private readonly callback: (data: {}) => void
-    private readonly autoHandleData: boolean
+    redo_stack: Array<string>
+    // unwatch方法
+    unwatch: () => void
+    // 回调
+    callback: ({}) => void
+    // 是否自动处理数据
+    auto_handle_data: boolean
+}
+
+export default class UndoBox {
+
+    // 撤销类型栈
+    private undo_key_stack: Array<string> = []
+    // 重做类型栈
+    private redo_key_stack: Array<string> = []
+    // watch_id key map
+    private id_key_dict: { [id: number]: string } = {}
+    // box信息
+    private box_info: { [key: string]: UndoBoxItem } = {}
 
     constructor(
+        private vm: Vue
+    ) {
+    }
+
+    /**
+     * 添加监听数据
+     */
+    public add(
         {
             key,
-            type = Type.AUTO,
-            autoBox = true,
-            autoHandleData = true,
-            callback = (data: {}) => {
+            callback = ({}) => {
             },
-            vm
+            auto_handle_data = true
         }: {
             key: string,
-            type?: Type,
-            autoBox?: boolean,
-            autoHandleData?: boolean,
-            callback?: (data: {}) => void,
-            vm: Vue
+            callback: ({}) => void,
+            auto_handle_data: boolean
         }
     ) {
-        this.key = key;
-        this._vm = vm
-        this.type = type
-        this.autoHandleData = autoHandleData
-        this.callback = callback
-        if (autoBox) {
-            this.box()
+        this.box_info[key] = {
+            undo_stack: [JSON.stringify(this.vm.$data[key])],
+            redo_stack: [],
+            callback,
+            auto_handle_data,
+            unwatch: () => {
+            }
         }
-    }
-
-    /**
-     * 重置数据
-     * @private
-     */
-    private _reset(): void {
-        this.undo_stack = []
-        this.redo_stack = []
-        this.freeze = 0
-        this.running = false
-    }
-
-    /**
-     * 开始监听
-     */
-    public box() {
-        if (this.running) {
-            return
-        }
-
-        this._reset()
-        this.undo_stack.push(JSON.stringify(this._vm.$data[this.key]))
-        this.running = true
-
-        if (this.type === Type.MANUAL) {
-            return;
-        }
-        this.unwatch = this._vm.$watch(this.key,
-            (val) => {
-                if (this.freeze > 0) {
-                    this.freeze--
-                    return;
-                }
-
-                this.undo_stack.push(JSON.stringify(val))
-                this.redo_stack = []
-
-            },
-            {
-                deep: true
-            })
-    }
-
-    public record(){
-        if (this.type === Type.AUTO) {
-            return
-        }
-        this.undo_stack.push(JSON.stringify(this._vm.$data[this.key]))
-    }
-
-    /**
-     * 停止监听
-     */
-    public unbox(): void {
-        this._reset()
-        this.unwatch()
+        this.watch(key)
     }
 
     /**
      * 撤销
      */
-    public undo(): void {
-        if (typeof this.undo_stack === "undefined" || this.undo_stack === null || this.undo_stack.length <= 1) {
+    public undo() {
+        if (
+            typeof this.undo_key_stack === "undefined"
+            ||
+            this.undo_key_stack === null
+            ||
+            this.undo_key_stack.length === 0
+        ) {
             return
         }
-        if (this.type === Type.AUTO) {
-            this.freeze++
-        }
-        let pop = this.undo_stack.pop()
-        if (pop == undefined) {
-            return;
-        }
-        this.redo_stack.push(pop)
-        let data = JSON.parse(this.undo_stack[this.undo_stack.length - 1])
-        this.defaultHandle(data)
+
+        let snapshot_key: any = this.undo_key_stack.pop()
+        this.redo_key_stack.push(snapshot_key)
+        let snapshot_record = this.box_info[snapshot_key].undo_stack.pop()
+        if (snapshot_record === undefined) return;
+        this.box_info[snapshot_key].redo_stack.push(snapshot_record)
+
+        let data = JSON.parse(this.box_info[snapshot_key].undo_stack[this.box_info[snapshot_key].undo_stack.length - 1])
+        this.unwatch(snapshot_key)
+        this.defaultHandle(snapshot_key, data)
+        this.watch(snapshot_key)
+
     }
 
     /**
      * 重做
      */
-    public redo(): void {
-        if (typeof this.redo_stack === "undefined" || this.redo_stack === null || this.redo_stack.length === 0) {
+    public redo() {
+        if (
+            typeof this.redo_key_stack === "undefined"
+            ||
+            this.redo_key_stack === null
+            ||
+            this.redo_key_stack.length === 0
+        ) {
             return
         }
-        if (this.type === Type.AUTO) {
-            this.freeze++
-        }
-        let pop = this.redo_stack.pop()
-        if (pop === undefined) {
-            return;
-        }
-        this.undo_stack.push(pop)
+
+        let snapshot_key: any = this.redo_key_stack.pop()
+        this.undo_key_stack.push(snapshot_key)
+        let pop = this.box_info[snapshot_key].redo_stack.pop()
+        if (pop === undefined) return;
+        this.box_info[snapshot_key].undo_stack.push(pop)
         let data = JSON.parse(pop)
-        this.defaultHandle(data)
+        this.unwatch(snapshot_key)
+        this.defaultHandle(snapshot_key, data)
+        this.watch(snapshot_key)
     }
 
     /**
-     * 默认行为
-     * @param data
-     * @private
+     * 开始监听
+     * @param key
      */
-    private defaultHandle(data: {}) {
-        if (this.autoHandleData) {
-            this.defaultHandleDataChange(data)
+    public watch(key: string) {
+        this.box_info[key].unwatch =
+            this.vm.$watch(key,
+                (val) => {
+                    let key = this.id_key_dict[val.__ob__.dep.id]
+                    this.take_snapshot(key, val)
+
+                },
+                {
+                    deep: true
+                })
+
+        this.id_key_dict[this.vm.$data[key].__ob__.dep.id] = key
+    }
+
+    /**
+     * 手动记录快照
+     * @param key
+     * @param data
+     */
+    public take_snapshot(key: string, data: any) {
+        this.undo_key_stack.push(key)
+        this.box_info[key].undo_stack.push(JSON.stringify(data))
+        this.redo_key_stack = []
+        for (key in this.box_info) {
+            this.box_info[key].redo_stack = []
         }
-        this.callback(data)
+    }
+
+    /**
+     * 停止监听
+     * @param key
+     */
+    public unwatch(key: string) {
+        this.box_info[key].unwatch()
     }
 
     /**
      * 默认处理数据方法
+     * @param key
      * @param data
      * @private
      */
-    private defaultHandleDataChange(data: {}) {
-        this._vm.$set(this._vm, this.key, data)
+    private defaultHandle(key: string, data: any) {
+        if (this.box_info[key].auto_handle_data) {
+            this.vm.$set(this.vm, key, data)
+        }
+        this.box_info[key].callback(data)
     }
-
-
 }
 
-export default UndoBox
