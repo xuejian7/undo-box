@@ -97,12 +97,7 @@ export default class UndoBoxPlus {
             unwatch: this.vm.$watch(key,
                 (val) => {
                     let key = this.id_key_dict[val.__ob__.dep.id]
-                    this.undo_key_stack.push(key)
-                    this.undo_stack_category[key].push(JSON.stringify(val))
-                    this.redo_key_stack = []
-                    for (key in this.redo_stack_category) {
-                        this.redo_stack_category[key] = []
-                    }
+                    this.take_snapshot(key, val)
 
                 },
                 {
@@ -110,6 +105,15 @@ export default class UndoBoxPlus {
                 })
         }
         this.id_key_dict[this.vm.$data[key].__ob__.dep.id] = key
+    }
+
+    public take_snapshot(key: string, data: any) {
+        this.undo_key_stack.push(key)
+        this.undo_stack_category[key].push(JSON.stringify(data))
+        this.redo_key_stack = []
+        for (key in this.redo_stack_category) {
+            this.redo_stack_category[key] = []
+        }
     }
 
     public unwatch(key: string) {
