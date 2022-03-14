@@ -30,7 +30,9 @@ Vue.prototype.$dodoBox = undoBox
             },
             mounted() {
                 // 获取撤销工具
-                this.undoUtil = this.$undoBox({key: 'need_undo_data'})
+                this.undoUtil = this.this.$undoBox({size: 100})
+              	// 添加监听数据
+              	this.undoUtil.add({key: 'need_undo_data'})
             },
             methods: {
                 undo() {
@@ -42,8 +44,10 @@ Vue.prototype.$dodoBox = undoBox
                     this.undoUtil.redo()
                 }
             }
-        }
-        ```
+   }
+   ```
+   
+   size - 为撤销栈最大容量 默认为100
    
    2. 手动处理数据
 
@@ -60,9 +64,13 @@ Vue.prototype.$dodoBox = undoBox
           },
           mounted() {
               // 获取撤销工具
-              this.undoUtil = this.$undoBox({
+              this.undoUtil = this.this.$undoBox({size: 100})
+            	// 添加监听数据
+            	this.undoUtil.add({key: 'need_undo_data'})
+            
+            	this.undoUtil.add({
                 key: 'need_undo_data',
-                autoHandleData: false,
+                auto_handle_data: false,
                 callback: (data) => {
                   this.customHandleData(data)
                 }
@@ -84,13 +92,11 @@ Vue.prototype.$dodoBox = undoBox
       }
       ```
 
-### 4. undoBox参数
+### 4. add方法参数
 
 - `key` - （必填）所需监听数据的字段名称
 
-- `autoBox` - （选填，默认为 true）是否自动开始监听
-
-- `autoHandleData` - （选填，默认为 true）是否自动处理数据。默认使用Vue.set()赋值
+- `auto_handle_data` - （选填，默认为 true）是否自动处理数据。默认使用Vue.set()赋值
 
 - `callback` - （选填，默认为空方法）撤回、重做回调方法
 
