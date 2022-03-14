@@ -25,7 +25,8 @@ export default class UndoBox {
     private box_info: { [key: string]: UndoBoxItem } = {}
 
     constructor(
-        private vm: Vue
+        private vm: Vue,
+        private size: number = 100
     ) {
     }
 
@@ -132,6 +133,10 @@ export default class UndoBox {
      * @param data
      */
     public take_snapshot(key: string, data: any) {
+        if (this.undo_key_stack.length >= this.size) {
+            this.undo_key_stack.splice(0, 1)
+            this.box_info[key].undo_stack.splice(0, 1)
+        }
         this.undo_key_stack.push(key)
         this.box_info[key].undo_stack.push(JSON.stringify(data))
         this.redo_key_stack = []

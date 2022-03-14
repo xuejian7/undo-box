@@ -1,8 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 class UndoBox {
-    constructor(vm) {
+    constructor(vm, size = 100) {
         this.vm = vm;
+        this.size = size;
         // 撤销类型栈
         this.undo_key_stack = [];
         // 重做类型栈
@@ -91,6 +92,10 @@ class UndoBox {
      * @param data
      */
     take_snapshot(key, data) {
+        if (this.undo_key_stack.length >= this.size) {
+            this.undo_key_stack.splice(0, 1);
+            this.box_info[key].undo_stack.splice(0, 1);
+        }
         this.undo_key_stack.push(key);
         this.box_info[key].undo_stack.push(JSON.stringify(data));
         this.redo_key_stack = [];
