@@ -4,9 +4,11 @@ import Vue from "vue";
 
 export const undoBox = function (this: Vue,
                                  {
-                                     size = 100
+                                     size
                                  }: {
                                      size: number
+                                 } = {
+                                    size: 100
                                  }
 ) {
     return new UndoBox(this, size)
