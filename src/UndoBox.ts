@@ -124,6 +124,11 @@ export default class UndoBox {
                     deep: true
                 })
 
+        if (Object.values(this.id_key_dict).includes(key)) {
+            let useLessKey: number = Number.parseInt(Object.entries(this.id_key_dict).filter((entry) => entry[1] === key)[0][0])
+            delete this.id_key_dict[useLessKey]
+        }
+
         this.id_key_dict[this.vm.$data[key].__ob__.dep.id] = key
     }
 
