@@ -8,7 +8,7 @@ const UndoBox_1 = __importDefault(require("./UndoBox"));
 const undoBox = function ({ size } = {
     size: 100
 }) {
-    return new UndoBox_1.default(this, size);
+    return new UndoBox_1.default(size);
 };
 exports.undoBox = undoBox;
 const install = function (Vue, opts) {

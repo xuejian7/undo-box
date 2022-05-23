@@ -2,16 +2,16 @@ import UndoBox from './UndoBox'
 import Vue from "vue";
 
 
-export const undoBox = function (this: Vue,
-                                 {
-                                     size
-                                 }: {
-                                     size: number
-                                 } = {
-                                    size: 100
-                                 }
+export const undoBox = function (
+    {
+        size
+    }: {
+        size: number
+    } = {
+        size: 100
+    }
 ) {
-    return new UndoBox(this, size)
+    return new UndoBox(size)
 }
 
 const install = function (Vue: any, opts: {}) {

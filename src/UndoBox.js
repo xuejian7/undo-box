@@ -1,8 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 class UndoBox {
-    constructor(vm, size = 100) {
-        this.vm = vm;
+    constructor(size = 100) {
         this.size = size;
         // 撤销类型栈
         this.undo_key_stack = [];
@@ -16,10 +15,11 @@ class UndoBox {
     /**
      * 添加监听数据
      */
-    add({ key, callback = ({}) => {
+    add({ vm, key, callback = ({}) => {
     }, auto_handle_data = true }) {
         this.box_info[key] = {
-            undo_stack: [JSON.stringify(this.vm.$data[key])],
+            vm: vm,
+            undo_stack: [JSON.stringify(vm.$data[key])],
             redo_stack: [],
             callback,
             auto_handle_data,
@@ -78,7 +78,7 @@ class UndoBox {
      */
     watch(key) {
         this.box_info[key].unwatch =
-            this.vm.$watch(key, (val) => {
+            this.box_info[key].vm.$watch(key, (val) => {
                 let key = this.id_key_dict[val.__ob__.dep.id];
                 this.take_snapshot(key, val);
             }, {
@@ -88,7 +88,7 @@ class UndoBox {
             let useLessKey = Number.parseInt(Object.entries(this.id_key_dict).filter((entry) => entry[1] === key)[0][0]);
             delete this.id_key_dict[useLessKey];
         }
-        this.id_key_dict[this.vm.$data[key].__ob__.dep.id] = key;
+        this.id_key_dict[this.box_info[key].vm.$data[key].__ob__.dep.id] = key;
     }
     /**
      * 手动记录快照
@@ -122,7 +122,7 @@ class UndoBox {
      */
     defaultHandle(key, data) {
         if (this.box_info[key].auto_handle_data) {
-            this.vm.$set(this.vm, key, data);
+            this.box_info[key].vm.$set(this.box_info[key].vm, key, data);
         }
         this.box_info[key].callback(data);
     }

@@ -1,6 +1,8 @@
 import Vue from "vue";
 
 interface UndoBoxItem {
+    // vm
+    vm: Vue
     // 撤销栈
     undo_stack: Array<string>
     // 重做栈
@@ -25,7 +27,6 @@ export default class UndoBox {
     private box_info: { [key: string]: UndoBoxItem } = {}
 
     constructor(
-        private vm: Vue,
         private size: number = 100
     ) {
     }
@@ -35,18 +36,21 @@ export default class UndoBox {
      */
     public add(
         {
+            vm,
             key,
             callback = ({}) => {
             },
             auto_handle_data = true
         }: {
+            vm: Vue,
             key: string,
             callback: ({}) => void,
             auto_handle_data: boolean
         }
     ) {
         this.box_info[key] = {
-            undo_stack: [JSON.stringify(this.vm.$data[key])],
+            vm: vm,
+            undo_stack: [JSON.stringify(vm.$data[key])],
             redo_stack: [],
             callback,
             auto_handle_data,
@@ -114,7 +118,7 @@ export default class UndoBox {
      */
     public watch(key: string) {
         this.box_info[key].unwatch =
-            this.vm.$watch(key,
+            this.box_info[key].vm.$watch(key,
                 (val) => {
                     let key = this.id_key_dict[val.__ob__.dep.id]
                     this.take_snapshot(key, val)
@@ -129,7 +133,7 @@ export default class UndoBox {
             delete this.id_key_dict[useLessKey]
         }
 
-        this.id_key_dict[this.vm.$data[key].__ob__.dep.id] = key
+        this.id_key_dict[this.box_info[key].vm.$data[key].__ob__.dep.id] = key
     }
 
     /**
@@ -166,7 +170,7 @@ export default class UndoBox {
      */
     private defaultHandle(key: string, data: any) {
         if (this.box_info[key].auto_handle_data) {
-            this.vm.$set(this.vm, key, data)
+            this.box_info[key].vm.$set(this.box_info[key].vm, key, data)
         }
         this.box_info[key].callback(data)
     }
