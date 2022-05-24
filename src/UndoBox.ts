@@ -162,8 +162,13 @@ export default class UndoBox {
             let first_key = this.undo_key_stack.splice(0, 1)[0]
             this.box_info[first_key].undo_stack.splice(0, 1)
         }
+        let json = JSON.stringify(data)
+        if (json === this.box_info[key].undo_stack[this.box_info[key].undo_stack.length - 1]) {
+            // 两次记录相同跳过
+            return
+        }
         this.undo_key_stack.push(key)
-        this.box_info[key].undo_stack.push(JSON.stringify(data))
+        this.box_info[key].undo_stack.push(json)
         this.redo_key_stack = []
         for (key in this.box_info) {
             this.box_info[key].redo_stack = []
