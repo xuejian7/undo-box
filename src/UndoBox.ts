@@ -13,6 +13,13 @@ interface UndoBoxItem {
     callback: ({}) => void
     // 是否自动处理数据
     auto_handle_data: boolean
+    // 记录快照策略
+    snapshot_strategy: SnapshotStrategy
+}
+
+enum SnapshotStrategy {
+    AUTO = 'AUTO',
+    MANUAL = 'MANUAL'
 }
 
 export default class UndoBox {
@@ -40,12 +47,14 @@ export default class UndoBox {
             key,
             callback = ({}) => {
             },
-            auto_handle_data = true
+            auto_handle_data = true,
+            snapshot_strategy = SnapshotStrategy.AUTO
         }: {
             vm: Vue,
             key: string,
             callback: ({}) => void,
             auto_handle_data: boolean
+            snapshot_strategy: SnapshotStrategy
         }
     ) {
         this.box_info[key] = {
@@ -55,9 +64,12 @@ export default class UndoBox {
             callback,
             auto_handle_data,
             unwatch: () => {
-            }
+            },
+            snapshot_strategy
         }
-        this.watch(key)
+        if (snapshot_strategy === SnapshotStrategy.AUTO) {
+            this.watch(key)
+        }
     }
 
     /**
@@ -81,9 +93,7 @@ export default class UndoBox {
         this.box_info[snapshot_key].redo_stack.push(snapshot_record)
 
         let data = JSON.parse(this.box_info[snapshot_key].undo_stack[this.box_info[snapshot_key].undo_stack.length - 1])
-        this.unwatch(snapshot_key)
-        this.defaultHandle(snapshot_key, data)
-        this.watch(snapshot_key)
+        this.handle(snapshot_key, data)
 
     }
 
@@ -107,9 +117,7 @@ export default class UndoBox {
         if (pop === undefined) return;
         this.box_info[snapshot_key].undo_stack.push(pop)
         let data = JSON.parse(pop)
-        this.unwatch(snapshot_key)
-        this.defaultHandle(snapshot_key, data)
-        this.watch(snapshot_key)
+        this.handle(snapshot_key, data)
     }
 
     /**
@@ -160,6 +168,24 @@ export default class UndoBox {
      */
     public unwatch(key: string) {
         this.box_info[key].unwatch()
+    }
+
+    /**
+     * 处理数据方法
+     * @param key
+     * @param data
+     * @private
+     */
+    private handle(key: string, data: any) {
+        if (this.box_info[key].snapshot_strategy === SnapshotStrategy.AUTO) {
+            this.unwatch(key)
+        }
+
+        this.defaultHandle(key, data)
+
+        if (this.box_info[key].snapshot_strategy === SnapshotStrategy.AUTO) {
+            this.watch(key)
+        }
     }
 
     /**

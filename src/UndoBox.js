@@ -1,5 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+var SnapshotStrategy;
+(function (SnapshotStrategy) {
+    SnapshotStrategy["AUTO"] = "AUTO";
+    SnapshotStrategy["MANUAL"] = "MANUAL";
+})(SnapshotStrategy || (SnapshotStrategy = {}));
 class UndoBox {
     constructor(size = 100) {
         this.size = size;
@@ -16,7 +21,7 @@ class UndoBox {
      * 添加监听数据
      */
     add({ vm, key, callback = ({}) => {
-    }, auto_handle_data = true }) {
+    }, auto_handle_data = true, snapshot_strategy = SnapshotStrategy.AUTO }) {
         this.box_info[key] = {
             vm: vm,
             undo_stack: [JSON.stringify(vm.$data[key])],
@@ -24,9 +29,12 @@ class UndoBox {
             callback,
             auto_handle_data,
             unwatch: () => {
-            }
+            },
+            snapshot_strategy
         };
-        this.watch(key);
+        if (snapshot_strategy === SnapshotStrategy.AUTO) {
+            this.watch(key);
+        }
     }
     /**
      * 撤销
@@ -46,9 +54,7 @@ class UndoBox {
             return;
         this.box_info[snapshot_key].redo_stack.push(snapshot_record);
         let data = JSON.parse(this.box_info[snapshot_key].undo_stack[this.box_info[snapshot_key].undo_stack.length - 1]);
-        this.unwatch(snapshot_key);
-        this.defaultHandle(snapshot_key, data);
-        this.watch(snapshot_key);
+        this.handle(snapshot_key, data);
     }
     /**
      * 重做
@@ -68,9 +74,7 @@ class UndoBox {
             return;
         this.box_info[snapshot_key].undo_stack.push(pop);
         let data = JSON.parse(pop);
-        this.unwatch(snapshot_key);
-        this.defaultHandle(snapshot_key, data);
-        this.watch(snapshot_key);
+        this.handle(snapshot_key, data);
     }
     /**
      * 开始监听
@@ -113,6 +117,21 @@ class UndoBox {
      */
     unwatch(key) {
         this.box_info[key].unwatch();
+    }
+    /**
+     * 处理数据方法
+     * @param key
+     * @param data
+     * @private
+     */
+    handle(key, data) {
+        if (this.box_info[key].snapshot_strategy === SnapshotStrategy.AUTO) {
+            this.unwatch(key);
+        }
+        this.defaultHandle(key, data);
+        if (this.box_info[key].snapshot_strategy === SnapshotStrategy.AUTO) {
+            this.watch(key);
+        }
     }
     /**
      * 默认处理数据方法
