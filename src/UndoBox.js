@@ -1,10 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.SnapshotStrategy = void 0;
 var SnapshotStrategy;
 (function (SnapshotStrategy) {
     SnapshotStrategy["AUTO"] = "AUTO";
     SnapshotStrategy["MANUAL"] = "MANUAL";
-})(SnapshotStrategy || (SnapshotStrategy = {}));
+})(SnapshotStrategy = exports.SnapshotStrategy || (exports.SnapshotStrategy = {}));
 class UndoBox {
     constructor(size = 100) {
         this.size = size;

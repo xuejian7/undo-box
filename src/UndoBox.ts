@@ -17,7 +17,7 @@ interface UndoBoxItem {
     snapshot_strategy: SnapshotStrategy
 }
 
-enum SnapshotStrategy {
+export enum SnapshotStrategy {
     AUTO = 'AUTO',
     MANUAL = 'MANUAL'
 }
