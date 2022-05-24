@@ -1,6 +1,10 @@
 import Vue from "vue";
 
 interface UndoBoxItem {
+    // uuid
+    uuid: string
+    // key
+    key: string
     // vm
     vm: Vue
     // 撤销栈
@@ -48,6 +52,7 @@ export default class UndoBox {
      */
     public add(
         {
+            uuid = '',
             vm,
             key,
             callback = ({}) => {
@@ -55,6 +60,7 @@ export default class UndoBox {
             handle_data_strategy = HandleDataStrategy.AUTO,
             snapshot_strategy = SnapshotStrategy.AUTO
         }: {
+            uuid: string,
             vm: Vue,
             key: string,
             callback: ({}) => void,
@@ -62,7 +68,9 @@ export default class UndoBox {
             snapshot_strategy: SnapshotStrategy
         }
     ) {
-        this.box_info[key] = {
+        this.box_info[UndoBox.uuid$key(uuid, key)] = {
+            uuid,
+            key,
             vm: vm,
             // @ts-ignore
             undo_stack: [JSON.stringify(vm[key])],
@@ -74,7 +82,7 @@ export default class UndoBox {
             snapshot_strategy
         }
         if (snapshot_strategy === SnapshotStrategy.AUTO) {
-            this.watch(key)
+            this.watch(key, uuid)
         }
     }
 
@@ -129,46 +137,50 @@ export default class UndoBox {
     /**
      * 开始监听
      * @param key
+     * @param uuid
      */
-    public watch(key: string) {
-        this.box_info[key].unwatch =
-            this.box_info[key].vm.$watch(key,
+    public watch(key: string, uuid: string = '') {
+        let uKey = UndoBox.uuid$key(uuid, key)
+        this.box_info[uKey].unwatch =
+            this.box_info[uKey].vm.$watch(key,
                 (val) => {
-                    let key = this.id_key_dict[val.__ob__.dep.id]
-                    this.take_snapshot(key, val)
-
+                    let uKey = this.id_key_dict[val.__ob__.dep.id]
+                    this.take_snapshot(this.box_info[uKey].key, this.box_info[uKey].uuid, val)
                 },
                 {
                     deep: true
                 })
 
-        if (Object.values(this.id_key_dict).includes(key)) {
+        if (Object.values(this.id_key_dict).includes(uKey)) {
             let useLessKey: number = Number.parseInt(Object.entries(this.id_key_dict).filter((entry) => entry[1] === key)[0][0])
             delete this.id_key_dict[useLessKey]
         }
         // 可接收data computed
         // @ts-ignore
-        this.id_key_dict[this.box_info[key].vm[key].__ob__.dep.id] = key
+        this.id_key_dict[this.box_info[uKey].vm[key].__ob__.dep.id] = uKey
     }
 
     /**
      * 手动记录快照
      * @param key
+     * @param uuid
      * @param data
      */
     // @ts-ignore
-    public take_snapshot(key: string, data: any = this.box_info[key].vm[key]) {
+    public take_snapshot(key: string, uuid: string = '', data: any = this.box_info[key].vm[key]) {
         if (this.undo_key_stack.length >= this.size) {
             let first_key = this.undo_key_stack.splice(0, 1)[0]
             this.box_info[first_key].undo_stack.splice(0, 1)
         }
+
+        let uKey = UndoBox.uuid$key(uuid, key)
         let json = JSON.stringify(data)
-        if (json === this.box_info[key].undo_stack[this.box_info[key].undo_stack.length - 1]) {
+        if (json === this.box_info[uKey].undo_stack[this.box_info[uKey].undo_stack.length - 1]) {
             // 两次记录相同跳过
             return
         }
-        this.undo_key_stack.push(key)
-        this.box_info[key].undo_stack.push(json)
+        this.undo_key_stack.push(uKey)
+        this.box_info[uKey].undo_stack.push(json)
         this.redo_key_stack = []
         for (key in this.box_info) {
             this.box_info[key].redo_stack = []
@@ -178,51 +190,59 @@ export default class UndoBox {
     /**
      * 停止监听
      * @param key
+     * @param uuid
      */
-    public unwatch(key: string) {
-        this.box_info[key].unwatch()
+    public unwatch(key: string, uuid: string = '') {
+        let uKey = UndoBox.uuid$key(uuid, key)
+        this.box_info[uKey].unwatch()
     }
 
     /**
      * 手动记录快照并重新监听
      * @param key
+     * @param uuid
      * @param data
      */
     // @ts-ignore
-    public take_snapshot_and_watch(key: string, data: any = this.box_info[key].vm[key]) {
-        this.take_snapshot(key, data)
-        this.watch(key)
+    public take_snapshot_and_watch(key: string, uuid: string = '', data: any = this.box_info[UndoBox.uuid$key(uuid, key)].vm[key]) {
+        this.take_snapshot(key, uuid, data)
+        this.watch(key, uuid)
     }
 
     /**
      * 处理数据方法
-     * @param key
+     * @param uKey
      * @param data
      * @private
      */
-    private handle(key: string, data: any) {
-        if (this.box_info[key].snapshot_strategy === SnapshotStrategy.AUTO) {
-            this.unwatch(key)
+    private handle(uKey: string, data: any) {
+        if (this.box_info[uKey].snapshot_strategy === SnapshotStrategy.AUTO) {
+            this.unwatch(this.box_info[uKey].key, this.box_info[uKey].uuid)
         }
 
-        this.defaultHandle(key, data)
+        this.defaultHandle(uKey, data)
 
-        if (this.box_info[key].snapshot_strategy === SnapshotStrategy.AUTO) {
-            this.watch(key)
+        if (this.box_info[uKey].snapshot_strategy === SnapshotStrategy.AUTO) {
+            this.watch(this.box_info[uKey].key, this.box_info[uKey].uuid)
         }
     }
 
     /**
      * 默认处理数据方法
-     * @param key
+     * @param uKey
      * @param data
      * @private
      */
-    private defaultHandle(key: string, data: any) {
-        if (this.box_info[key].handle_data_strategy === HandleDataStrategy.AUTO) {
-            this.box_info[key].vm.$set(this.box_info[key].vm, key, data)
+    private defaultHandle(uKey: string, data: any) {
+        if (this.box_info[uKey].handle_data_strategy === HandleDataStrategy.AUTO) {
+            this.box_info[uKey].vm.$set(this.box_info[uKey].vm, this.box_info[uKey].key, data)
         }
-        this.box_info[key].callback(data)
+        this.box_info[uKey].callback(data)
     }
+
+    private static uuid$key(uuid: string, key: string) {
+        return uuid + '$' + key
+    }
+
 }
 
