@@ -11,13 +11,18 @@ interface UndoBoxItem {
     unwatch: () => void
     // 回调
     callback: ({}) => void
-    // 是否自动处理数据
-    auto_handle_data: boolean
+    // 处理数据策略
+    handle_data_strategy: HandleDataStrategy
     // 记录快照策略
     snapshot_strategy: SnapshotStrategy
 }
 
 export enum SnapshotStrategy {
+    AUTO = 'AUTO',
+    MANUAL = 'MANUAL'
+}
+
+export enum HandleDataStrategy {
     AUTO = 'AUTO',
     MANUAL = 'MANUAL'
 }
@@ -47,13 +52,13 @@ export default class UndoBox {
             key,
             callback = ({}) => {
             },
-            auto_handle_data = true,
+            handle_data_strategy = HandleDataStrategy.AUTO,
             snapshot_strategy = SnapshotStrategy.AUTO
         }: {
             vm: Vue,
             key: string,
             callback: ({}) => void,
-            auto_handle_data: boolean
+            handle_data_strategy: HandleDataStrategy
             snapshot_strategy: SnapshotStrategy
         }
     ) {
@@ -62,7 +67,7 @@ export default class UndoBox {
             undo_stack: [JSON.stringify(vm.$data[key])],
             redo_stack: [],
             callback,
-            auto_handle_data,
+            handle_data_strategy,
             unwatch: () => {
             },
             snapshot_strategy
@@ -140,8 +145,9 @@ export default class UndoBox {
             let useLessKey: number = Number.parseInt(Object.entries(this.id_key_dict).filter((entry) => entry[1] === key)[0][0])
             delete this.id_key_dict[useLessKey]
         }
-
-        this.id_key_dict[this.box_info[key].vm.$data[key].__ob__.dep.id] = key
+        // 可接收data computed
+        // @ts-ignore
+        this.id_key_dict[this.box_info[key].vm[key].__ob__.dep.id] = key
     }
 
     /**
@@ -195,7 +201,7 @@ export default class UndoBox {
      * @private
      */
     private defaultHandle(key: string, data: any) {
-        if (this.box_info[key].auto_handle_data) {
+        if (this.box_info[key].handle_data_strategy === HandleDataStrategy.AUTO) {
             this.box_info[key].vm.$set(this.box_info[key].vm, key, data)
         }
         this.box_info[key].callback(data)

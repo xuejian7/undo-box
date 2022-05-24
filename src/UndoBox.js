@@ -1,11 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SnapshotStrategy = void 0;
+exports.HandleDataStrategy = exports.SnapshotStrategy = void 0;
 var SnapshotStrategy;
 (function (SnapshotStrategy) {
     SnapshotStrategy["AUTO"] = "AUTO";
     SnapshotStrategy["MANUAL"] = "MANUAL";
 })(SnapshotStrategy = exports.SnapshotStrategy || (exports.SnapshotStrategy = {}));
+var HandleDataStrategy;
+(function (HandleDataStrategy) {
+    HandleDataStrategy["AUTO"] = "AUTO";
+    HandleDataStrategy["MANUAL"] = "MANUAL";
+})(HandleDataStrategy = exports.HandleDataStrategy || (exports.HandleDataStrategy = {}));
 class UndoBox {
     constructor(size = 100) {
         this.size = size;
@@ -22,13 +27,13 @@ class UndoBox {
      * 添加监听数据
      */
     add({ vm, key, callback = ({}) => {
-    }, auto_handle_data = true, snapshot_strategy = SnapshotStrategy.AUTO }) {
+    }, handle_data_strategy = HandleDataStrategy.AUTO, snapshot_strategy = SnapshotStrategy.AUTO }) {
         this.box_info[key] = {
             vm: vm,
             undo_stack: [JSON.stringify(vm.$data[key])],
             redo_stack: [],
             callback,
-            auto_handle_data,
+            handle_data_strategy,
             unwatch: () => {
             },
             snapshot_strategy
@@ -93,7 +98,9 @@ class UndoBox {
             let useLessKey = Number.parseInt(Object.entries(this.id_key_dict).filter((entry) => entry[1] === key)[0][0]);
             delete this.id_key_dict[useLessKey];
         }
-        this.id_key_dict[this.box_info[key].vm.$data[key].__ob__.dep.id] = key;
+        // 可接收data computed
+        // @ts-ignore
+        this.id_key_dict[this.box_info[key].vm[key].__ob__.dep.id] = key;
     }
     /**
      * 手动记录快照
@@ -141,7 +148,7 @@ class UndoBox {
      * @private
      */
     defaultHandle(key, data) {
-        if (this.box_info[key].auto_handle_data) {
+        if (this.box_info[key].handle_data_strategy === HandleDataStrategy.AUTO) {
             this.box_info[key].vm.$set(this.box_info[key].vm, key, data);
         }
         this.box_info[key].callback(data);
