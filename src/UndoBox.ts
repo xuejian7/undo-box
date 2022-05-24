@@ -152,7 +152,7 @@ export default class UndoBox {
                 })
 
         if (Object.values(this.id_key_dict).includes(uKey)) {
-            let useLessKey: number = Number.parseInt(Object.entries(this.id_key_dict).filter((entry) => entry[1] === key)[0][0])
+            let useLessKey: number = Number.parseInt(Object.entries(this.id_key_dict).filter((entry) => entry[1] === uKey)[0][0])
             delete this.id_key_dict[useLessKey]
         }
         // 可接收data computed
@@ -167,7 +167,7 @@ export default class UndoBox {
      * @param data
      */
     // @ts-ignore
-    public take_snapshot(key: string, uuid: string = '', data: any = this.box_info[key].vm[key]) {
+    public take_snapshot(key: string, uuid: string = '', data: any = this.box_info[UndoBox.uuid$key(uuid, key)].vm[key]) {
         if (this.undo_key_stack.length >= this.size) {
             let first_key = this.undo_key_stack.splice(0, 1)[0]
             this.box_info[first_key].undo_stack.splice(0, 1)
