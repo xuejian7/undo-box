@@ -107,7 +107,8 @@ class UndoBox {
      * @param key
      * @param data
      */
-    take_snapshot(key, data) {
+    // @ts-ignore
+    take_snapshot(key, data = this.box_info[key].vm[key]) {
         if (this.undo_key_stack.length >= this.size) {
             let first_key = this.undo_key_stack.splice(0, 1)[0];
             this.box_info[first_key].undo_stack.splice(0, 1);
@@ -125,6 +126,16 @@ class UndoBox {
      */
     unwatch(key) {
         this.box_info[key].unwatch();
+    }
+    /**
+     * 手动记录快照并重新监听
+     * @param key
+     * @param data
+     */
+    // @ts-ignore
+    take_snapshot_and_watch(key, data = this.box_info[key].vm[key]) {
+        this.take_snapshot(key, data);
+        this.watch(key);
     }
     /**
      * 处理数据方法

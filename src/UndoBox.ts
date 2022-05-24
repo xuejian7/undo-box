@@ -155,7 +155,8 @@ export default class UndoBox {
      * @param key
      * @param data
      */
-    public take_snapshot(key: string, data: any) {
+    // @ts-ignore
+    public take_snapshot(key: string, data: any = this.box_info[key].vm[key]) {
         if (this.undo_key_stack.length >= this.size) {
             let first_key = this.undo_key_stack.splice(0, 1)[0]
             this.box_info[first_key].undo_stack.splice(0, 1)
@@ -174,6 +175,17 @@ export default class UndoBox {
      */
     public unwatch(key: string) {
         this.box_info[key].unwatch()
+    }
+
+    /**
+     * 手动记录快照并重新监听
+     * @param key
+     * @param data
+     */
+    // @ts-ignore
+    public take_snapshot_and_watch(key: string, data: any = this.box_info[key].vm[key]) {
+        this.take_snapshot(key, data)
+        this.watch(key)
     }
 
     /**
