@@ -30,7 +30,8 @@ class UndoBox {
     }, handle_data_strategy = HandleDataStrategy.AUTO, snapshot_strategy = SnapshotStrategy.AUTO }) {
         this.box_info[key] = {
             vm: vm,
-            undo_stack: [JSON.stringify(vm.$data[key])],
+            // @ts-ignore
+            undo_stack: [JSON.stringify(vm[key])],
             redo_stack: [],
             callback,
             handle_data_strategy,

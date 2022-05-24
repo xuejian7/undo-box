@@ -64,7 +64,8 @@ export default class UndoBox {
     ) {
         this.box_info[key] = {
             vm: vm,
-            undo_stack: [JSON.stringify(vm.$data[key])],
+            // @ts-ignore
+            undo_stack: [JSON.stringify(vm[key])],
             redo_stack: [],
             callback,
             handle_data_strategy,
