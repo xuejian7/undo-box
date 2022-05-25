@@ -68,19 +68,25 @@ export default class UndoBox {
             snapshot_strategy: SnapshotStrategy
         }
     ) {
-        this.box_info[UndoBox.uuid$key(uuid, key)] = {
-            uuid,
-            key,
-            vm: vm,
-            // @ts-ignore
-            undo_stack: [JSON.stringify(vm[key])],
-            redo_stack: [],
-            callback,
-            handle_data_strategy,
-            unwatch: () => {
-            },
-            snapshot_strategy
+        if (!this.box_info[UndoBox.uuid$key(uuid, key)]) {
+            this.box_info[UndoBox.uuid$key(uuid, key)] = {
+                uuid,
+                key,
+                vm: vm,
+                // @ts-ignore
+                undo_stack: [JSON.stringify(vm[key])],
+                redo_stack: [],
+                callback,
+                handle_data_strategy,
+                unwatch: () => {
+                },
+                snapshot_strategy
+            }
+        }else {
+            this.box_info[UndoBox.uuid$key(uuid, key)].vm = vm
+            this.reloadIdKeyDict(UndoBox.uuid$key(uuid, key))
         }
+
         if (snapshot_strategy === SnapshotStrategy.AUTO) {
             this.watch(key, uuid)
         }
@@ -151,13 +157,7 @@ export default class UndoBox {
                     deep: true
                 })
 
-        if (Object.values(this.id_key_dict).includes(uKey)) {
-            let useLessKey: number = Number.parseInt(Object.entries(this.id_key_dict).filter((entry) => entry[1] === uKey)[0][0])
-            delete this.id_key_dict[useLessKey]
-        }
-        // 可接收data computed
-        // @ts-ignore
-        this.id_key_dict[this.box_info[uKey].vm[key].__ob__.dep.id] = uKey
+        this.reloadIdKeyDict(uKey)
     }
 
     /**
@@ -225,6 +225,8 @@ export default class UndoBox {
         if (this.box_info[uKey].snapshot_strategy === SnapshotStrategy.AUTO) {
             this.watch(this.box_info[uKey].key, this.box_info[uKey].uuid)
         }
+
+        this.afterHandle(uKey)
     }
 
     /**
@@ -240,8 +242,32 @@ export default class UndoBox {
         this.box_info[uKey].callback(data)
     }
 
+    /**
+     * handle后置方法
+     * @param uKey
+     * @private
+     */
+    private afterHandle(uKey: string) {
+        this.reloadIdKeyDict(uKey)
+    }
+
     private static uuid$key(uuid: string, key: string) {
         return uuid + '$' + key
+    }
+
+    /**
+     * 重载id_key_dict
+     * @param uKey
+     * @private
+     */
+    private reloadIdKeyDict(uKey: string){
+        if (Object.values(this.id_key_dict).includes(uKey)) {
+            let useLessKey: number = Number.parseInt(Object.entries(this.id_key_dict).filter((entry) => entry[1] === uKey)[0][0])
+            delete this.id_key_dict[useLessKey]
+        }
+        // 可接收data computed
+        // @ts-ignore
+        this.id_key_dict[this.box_info[uKey].vm[this.box_info[uKey].key].__ob__.dep.id] = uKey
     }
 
 }

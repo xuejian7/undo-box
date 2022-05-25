@@ -28,19 +28,25 @@ class UndoBox {
      */
     add({ uuid = '', vm, key, callback = ({}) => {
     }, handle_data_strategy = HandleDataStrategy.AUTO, snapshot_strategy = SnapshotStrategy.AUTO }) {
-        this.box_info[UndoBox.uuid$key(uuid, key)] = {
-            uuid,
-            key,
-            vm: vm,
-            // @ts-ignore
-            undo_stack: [JSON.stringify(vm[key])],
-            redo_stack: [],
-            callback,
-            handle_data_strategy,
-            unwatch: () => {
-            },
-            snapshot_strategy
-        };
+        if (!this.box_info[UndoBox.uuid$key(uuid, key)]) {
+            this.box_info[UndoBox.uuid$key(uuid, key)] = {
+                uuid,
+                key,
+                vm: vm,
+                // @ts-ignore
+                undo_stack: [JSON.stringify(vm[key])],
+                redo_stack: [],
+                callback,
+                handle_data_strategy,
+                unwatch: () => {
+                },
+                snapshot_strategy
+            };
+        }
+        else {
+            this.box_info[UndoBox.uuid$key(uuid, key)].vm = vm;
+            this.reloadIdKeyDict(UndoBox.uuid$key(uuid, key));
+        }
         if (snapshot_strategy === SnapshotStrategy.AUTO) {
             this.watch(key, uuid);
         }
@@ -99,13 +105,7 @@ class UndoBox {
             }, {
                 deep: true
             });
-        if (Object.values(this.id_key_dict).includes(uKey)) {
-            let useLessKey = Number.parseInt(Object.entries(this.id_key_dict).filter((entry) => entry[1] === uKey)[0][0]);
-            delete this.id_key_dict[useLessKey];
-        }
-        // 可接收data computed
-        // @ts-ignore
-        this.id_key_dict[this.box_info[uKey].vm[key].__ob__.dep.id] = uKey;
+        this.reloadIdKeyDict(uKey);
     }
     /**
      * 手动记录快照
@@ -166,6 +166,7 @@ class UndoBox {
         if (this.box_info[uKey].snapshot_strategy === SnapshotStrategy.AUTO) {
             this.watch(this.box_info[uKey].key, this.box_info[uKey].uuid);
         }
+        this.afterHandle(uKey);
     }
     /**
      * 默认处理数据方法
@@ -179,8 +180,30 @@ class UndoBox {
         }
         this.box_info[uKey].callback(data);
     }
+    /**
+     * handle后置方法
+     * @param uKey
+     * @private
+     */
+    afterHandle(uKey) {
+        this.reloadIdKeyDict(uKey);
+    }
     static uuid$key(uuid, key) {
         return uuid + '$' + key;
+    }
+    /**
+     * 重载id_key_dict
+     * @param uKey
+     * @private
+     */
+    reloadIdKeyDict(uKey) {
+        if (Object.values(this.id_key_dict).includes(uKey)) {
+            let useLessKey = Number.parseInt(Object.entries(this.id_key_dict).filter((entry) => entry[1] === uKey)[0][0]);
+            delete this.id_key_dict[useLessKey];
+        }
+        // 可接收data computed
+        // @ts-ignore
+        this.id_key_dict[this.box_info[uKey].vm[this.box_info[uKey].key].__ob__.dep.id] = uKey;
     }
 }
 exports.default = UndoBox;
