@@ -15,7 +15,7 @@ import {undoBox} from 'undo-box'
 Vue.prototype.$dodoBox = undoBox
 ```
 ### 3. 在页面中使用undo-box
-   1. 自动处理数据
+   1. 例：
 
         ```js
         export default {
@@ -25,14 +25,25 @@ Vue.prototype.$dodoBox = undoBox
                     // 需要撤销功能的数据
                     need_undo_data: {},
                     // 撤销工具
-                    undoUtil: null
+                    undoUtil: null,
+                    instance_opts: {
+                      
+                    },
+                  	add_opts: {
+                      vm,
+                      uuid,
+                      key,
+                      callback,
+                      handle_data_strategy,
+                      snapshot_strategy,
+                    }
                 }
             },
             mounted() {
                 // 获取撤销工具
-                this.undoUtil = this.this.$undoBox({size: 100})
+                this.undoUtil = this.this.$undoBox(this.instance_opts)
               	// 添加监听数据
-              	this.undoUtil.add({key: 'need_undo_data'})
+              	this.undoUtil.add(this.add_opts)
             },
             methods: {
                 undo() {
@@ -41,66 +52,49 @@ Vue.prototype.$dodoBox = undoBox
                 },
                 redo() {
                     // 重做方法
-                    this.undoUtil.redo()
-                }
-            }
-   }
+               this.undoUtil.redo()
+           }
+       }
+      }
    ```
    
-   size - 为撤销栈最大容量 默认为100
-   
-   2. 手动处理数据
+   2. 参数
 
-      ```js
-      export default {
-          name: "index",
-          data() {
-              return {
-                  // 需要撤销功能的数据
-                  need_undo_data: {},
-                  // 撤销工具
-                  undoUtil: null
-              }
-          },
-          mounted() {
-              // 获取撤销工具
-              this.undoUtil = this.this.$undoBox({size: 100})
-            	// 添加监听数据
-            	this.undoUtil.add({key: 'need_undo_data'})
-            
-            	this.undoUtil.add({
-                key: 'need_undo_data',
-                auto_handle_data: false,
-                callback: (data) => {
-                  this.customHandleData(data)
-                }
-              })
-          },
-          methods: {
-            	customHandleData(data){
-                	/** TODO 自定义处理数据 **/
-              },
-              undo() {
-                  // 撤销方法
-                  this.undoUtil.undo();
-              },
-              redo() {
-                  // 重做方法
-                  this.undoUtil.redo()
-              }
-          }
-      }
-      ```
+        1. instance_opts
 
-### 4. add方法参数
+           - size: number - 撤回栈最大长度（默认值：100）
 
-- `key` - （必填）所需监听数据的字段名称
+        2. add_opts
 
-- `auto_handle_data` - （选填，默认为 true）是否自动处理数据。默认使用Vue.set()赋值
+           - vm: Vue - 数据所在vm
+           - uuid?: string - 如需监听多个相同key时，需指定uuid
 
-- `callback` - （选填，默认为空方法）撤回、重做回调方法
+           - Key: string - 所需监听数据的字段名称
 
-  入参：
+           - callback?: ({}) => {} - 撤回、重做回调方法
 
-  -  `data` - 当前撤销、重做后应得的结果
+             参数：
 
+             -  data - 当前撤销、重做后应得的结果
+
+           - handle_data_strategy?: HandleDataStrategy - 处理数据策略
+
+             - HandleDataStrategy
+               - AUTO - 自动处理数据，$set（默认值）
+               - MANUAL - 手动处理数据，可callback中指定处理数据方法
+
+           - snapshot_strategy?: SnapshotStrateg - 记录快照策略
+
+             - SnapshotStrateg
+               - AUTO - 监听数据，数据发生改变时自动记录快照（默认值）
+               - MANUAL - take_snapshot(key: string, uuid?: string, data?: any)手动记录快照
+
+        3. 其他方法
+
+           - take_snapshot(key, uuid, data) - 手动记录快照
+           - unwatch(key, uuid) - 停止监听
+           - watch(key, uuid) - 开始监听
+           - take_snapshot_and_watch(key, uuid, data) - 手动记录快照并开始监听
+             - key: string - add_opts.key
+             - uuid?: string - add_opts.uuid（可选）
+             - data?: any - 当前值（可选）
